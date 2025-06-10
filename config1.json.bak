@@ -1,0 +1,95 @@
+{
+  "accounts": [
+    {
+      "alias": "SUB2",
+      "exchange": "bybit_derivatives",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "alias": "SUB3",
+      "exchange": "bybit_derivatives",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "alias": "SUB4",
+      "exchange": "bybit_derivatives",
+      "api_key": "",
+      "api_secret": ""
+    }
+  ],
+  "alerting": {
+    "telegram": {
+      "bot_token": "",
+      "chat_id": ""
+    },
+    "slack": {
+      "webhook_url": ""
+    },
+    "discord": {
+      "webhook_url": ""
+    },
+    "default_alerts": {
+      "alert_when_wallet_exposure_above_percent": {
+        "threshold": 10,
+        "reset_threshold": 8
+      },
+      "alert_when_margin_used_above_percent": {
+        "threshold": 10,
+        "reset_threshold": 8
+      },
+      "alert_when_liquidation_price_within_percent": {
+        "thresholds": [
+          {
+            "threshold": 10,
+            "reset_threshold": 20
+          },
+          {
+            "threshold": 20,
+            "reset_threshold": 50
+          },
+          {
+            "threshold": 50,
+            "reset_threshold": 100
+          }
+        ]
+      },
+      "alert_when_upnl_exceeds_equity_percent": {
+        "thresholds": [
+          {
+            "threshold": 10,
+            "reset_threshold": 5
+          },
+          {
+            "threshold": 20,
+            "reset_threshold": 10
+          },
+          {
+            "threshold": 50,
+            "reset_threshold": 20
+          }
+        ]
+      },
+      "alert_when_price_position_difference_percent": {
+        "thresholds": [
+          {
+            "threshold": 10,
+            "reset_threshold": 5
+          },
+          {
+            "threshold": 20,
+            "reset_threshold": 10
+          },
+          {
+            "threshold": 50,
+            "reset_threshold": 20
+          }
+        ]
+      },
+      "daily_performance_report": {
+        "send_at_time_utc": "08:00"
+      }
+    }
+  }
+}

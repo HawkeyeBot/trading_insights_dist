@@ -1,0 +1,61 @@
+{
+  "accounts": [
+    {
+      "alias": "SUB6",
+      "exchange": "bybit_derivatives",
+      "api_key": "",
+      "api_secret": ""
+    }
+  ],
+  "alerting": {
+    "telegram": {
+      "bot_token": "5275378141:BAGDzVj1O3GhifJPJ6Qx5TzAaZuKQ29eFgc",
+      "chat_id": "1063198463"
+    },
+    "default_alerts": {
+        "alert_when_wallet_exposure_above_percent": {
+          "threshold": 5,
+          "reset_threshold": 3
+        },
+        "alert_when_margin_used_above_percent": {
+          "threshold": 15,
+          "reset_threshold": 10
+        },
+        "alert_when_liquidation_price_within_percent": {
+          "thresholds": [
+            {
+              "threshold": 10,
+              "reset_threshold": 0
+            },
+            {
+              "threshold": 20,
+              "reset_threshold": 10
+            },
+            {
+              "threshold": 50,
+              "reset_threshold": 20
+            }
+          ]
+        },
+        "alert_when_upnl_exceeds_equity_percent": {
+          "thresholds": [
+            {
+              "threshold": 20,
+              "reset_threshold": 10
+            }
+          ]
+        },
+        "alert_when_price_position_difference_percent": {
+          "thresholds": [
+            {
+              "threshold": 15,
+              "reset_threshold": 0
+            }
+          ]
+        },
+        "daily_performance_report": {
+          "send_at_time_utc": "08:00"
+        }
+      }
+  }
+}

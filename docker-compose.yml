@@ -1,0 +1,81 @@
+services:
+#  postgres:
+#    image: postgres:14.1-alpine
+#    restart: always
+#    environment:
+#      - POSTGRES_USER=postgres
+#      - POSTGRES_PASSWORD=ZP2OLeQG57r239!lUF9k!
+#      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+#    networks:
+#      - postgres
+#    ports:
+#      - '5432:5432'
+#    command: postgres -hutjeflutje listen_addresses='0.0.0.0'
+#    healthcheck:
+#      test: "pg_isready --username=postgres && psql --username=postgres --list"
+#      timeout: 10s
+#      retries: 20
+#    volumes:
+#      - ./pgdata:/var/lib/postgresql/data
+  scraper:
+    build:
+      dockerfile: Dockerfile_scraper
+    environment:
+      - CONFIG_FILE=/scraper/config.json
+      - DATABASE_PATH=postgresql+psycopg2://postgres:ZP2OLeQG57r239!lUF9k!@10.0.0.3/postgres
+      - WAIT_HOSTS=10.0.0.3:5432
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    restart: always
+    networks:
+      - postgres
+#    depends_on:
+#      - postgres
+  metabase-postgres:
+    image: postgres:14.1-alpine
+    container_name: metabase-postgres
+    hostname: metabase-postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=1C5viL5adeTX1VoV4R
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+      - POSTGRES_DB=metabase
+    networks:
+      - postgres
+    ports:
+      - '5433:5432'
+    command: postgres
+    healthcheck:
+      test: "pg_isready --username=postgres && psql --username=postgres --list"
+      timeout: 10s
+      retries: 20
+    volumes:
+      - ./pg-metabase:/var/lib/postgresql/data
+  metabase-app:
+    image: metabase/metabase:latest
+    container_name: metabase
+    hostname: metabase
+    user: root
+    volumes:
+      - /dev/urandom:/dev/random:ro
+    ports:
+      - 3000:3000
+    environment:
+      - MB_DB_TYPE=postgres
+      - MB_DB_DBNAME=metabase
+      - MB_DB_PORT=5432
+      - MB_DB_USER=postgres
+      - MB_DB_PASS=1C5viL5adeTX1VoV4R
+      - MB_DB_HOST=metabase-postgres
+    networks:
+      - postgres
+    depends_on:
+#      - postgres
+      - metabase-postgres
+#      - scraper
+networks:
+  postgres:
+    driver: bridge
+

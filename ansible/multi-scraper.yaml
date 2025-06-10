@@ -1,0 +1,459 @@
+---
+- name: Create multi-server dashboard setup
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  user: root
+  vars:
+    api_key: ""
+    state: present
+    localhost_warning: false
+
+  vars_prompt:
+    - name: api_key
+      prompt: Enter the API key
+  tasks:
+    - name: Gather users key contents and create variable
+      shell: "cat ~/.ssh/id_rsa.pub"
+      register: public_ssh_key
+    - name: Delete local public key from hetzner
+      hetzner.hcloud.ssh_key:
+        name: trading-insights-key
+        api_token: "{{ api_key }}"
+        state: absent
+    - name: Upload local public key to hetzner
+      hetzner.hcloud.ssh_key:
+        name: trading-insights-key
+        api_token: "{{ api_key }}"
+        public_key: "{{ public_ssh_key.stdout }}"
+        state: present
+    - name: Create private network
+      hcloud_network:
+        api_token: "{{ api_key }}"
+        name: trader-insights-network
+        ip_range: 10.0.0.0/16
+        state: "{{ state }}"
+    - name: Create subnetwork
+      hetzner.hcloud.subnetwork:
+        api_token: "{{ api_key }}"
+        network: trader-insights-network
+        ip_range: 10.0.0.0/24
+        network_zone: eu-central
+        type: server
+        state: "{{ state }}"
+    - name: Create dashboard server
+      hcloud_server:
+          api_token: "{{ api_key }}"
+          name: dashboard
+          server_type: cpx11
+          image: ubuntu-24.04
+          location: fsn1
+          ssh_keys:
+            - trading-insights-key
+          state: "{{ state }}"
+          private_networks:
+            - trader-insights-network
+      register: dashboardserver
+    - name: Add dashboard host to group 'dashboard'
+      changed_when: False
+      ansible.builtin.add_host:
+        name: '{{ dashboardserver.hcloud_server.ipv4_address }}'
+        groups: dashboard
+    - name: Remove entry from known hosts
+      ansible.builtin.known_hosts:
+        name: "{{ dashboardserver.hcloud_server.ipv4_address }}"
+        state: absent
+    - name: Create server network and specify the ip address
+      hetzner.hcloud.server_network:
+        api_token: "{{ api_key }}"
+        network: trader-insights-network
+        server: dashboard
+        ip: 10.0.0.2
+        state: "{{ state }}"
+    - name: Create postgres server
+      hcloud_server:
+          api_token: "{{ api_key }}"
+          name: postgres
+          server_type: cpx11
+          image: ubuntu-24.04
+          location: fsn1
+          ssh_keys:
+            - trading-insights-key
+          state: "{{ state }}"
+          private_networks:
+            - trader-insights-network
+      register: postgresserver
+    - name: Add postgres host to group 'postgres'
+      changed_when: False
+      ansible.builtin.add_host:
+        name: '{{ postgresserver.hcloud_server.ipv4_address }}'
+        groups: postgres
+    - name: Remove entry from known hosts
+      ansible.builtin.known_hosts:
+        name: "{{ postgresserver.hcloud_server.ipv4_address }}"
+        state: absent
+    - name: Create postgres server network and specify the ip address
+      hetzner.hcloud.server_network:
+        api_token: "{{ api_key }}"
+        network: trader-insights-network
+        server: postgres
+        ip: 10.0.0.3
+        state: "{{ state }}"
+    - name: Create a firewall with rules
+      hetzner.hcloud.firewall:
+        api_token: "{{ api_key }}"
+        name: trader-insights-firewall
+        rules:
+          - description: allow tcp from everywhere for port 3000
+            direction: in
+            protocol: tcp
+            port: "3000"
+            source_ips:
+              - 0.0.0.0/0
+              - ::/0
+          - description: allow tcp from everywhere for port 22
+            direction: in
+            protocol: tcp
+            port: "22"
+            source_ips:
+              - 0.0.0.0/0
+              - ::/0
+        state: "{{ state }}"
+    - name: Create a firewall with rules for the postgres server
+      hetzner.hcloud.firewall:
+        api_token: "{{ api_key }}"
+        name: trader-insights-postgres-firewall
+        rules:
+          - description: allow tcp from everywhere for port 22
+            direction: in
+            protocol: tcp
+            port: "22"
+            source_ips:
+              - 0.0.0.0/0
+              - ::/0
+        state: "{{ state }}"
+    - name: Apply firewall to dashboard server
+      hetzner.hcloud.firewall_resource:
+        api_token: "{{ api_key }}"
+        firewall: trader-insights-firewall
+        servers:
+          - dashboard
+        state: "{{ state }}"
+    - name: Apply firewall to postgres server
+      hetzner.hcloud.firewall_resource:
+        api_token: "{{ api_key }}"
+        firewall: trader-insights-postgres-firewall
+        servers:
+          - postgres
+        state: "{{ state }}"
+
+
+    # scraper 1
+    - name: check if config file exists for scraper 1
+      stat:
+        path: ../config1.json
+      register: scraper1_desired
+
+    # duplicate this for multiple scrapers
+    - name: Create scraper 1
+      hcloud_server:
+          api_token: "{{ api_key }}"
+          name: scraper1
+          server_type: cpx11
+          image: ubuntu-24.04
+          location: fsn1
+          ssh_keys:
+            - trading-insights-key
+          state: "{{ state }}"
+          private_networks:
+            - trader-insights-network
+      register: scraper1server
+      when: scraper1_desired.stat.exists
+    - name: Add scraper1 host to group 'scraper1'
+      changed_when: False
+      ansible.builtin.add_host:
+        name: '{{ scraper1server.hcloud_server.ipv4_address }}'
+        groups: scraper1
+      when: scraper1_desired.stat.exists
+    - name: Remove entry from known hosts
+      ansible.builtin.known_hosts:
+        name: "{{ scraper1server.hcloud_server.ipv4_address }}"
+        state: absent
+      when: scraper1_desired.stat.exists
+    - name: Create scraper1 network
+      hetzner.hcloud.server_network:
+        api_token: "{{ api_key }}"
+        network: trader-insights-network
+        server: scraper1
+        ip: 10.0.0.3
+        state: "{{ state }}"
+      when: scraper1_desired.stat.exists
+
+    # scraper 2
+    - name: check if config file exists for scraper 2
+      stat:
+        path: ../config2.json
+      register: scraper2_desired
+
+    - name: Create scraper 2
+      hcloud_server:
+          api_token: "{{ api_key }}"
+          name: scraper2
+          server_type: cpx11
+          image: ubuntu-24.04
+          location: fsn1
+          ssh_keys:
+            - trading-insights-key
+          state: "{{ state }}"
+          private_networks:
+            - trader-insights-network
+      register: scraper2server
+      when: scraper2_desired.stat.exists
+    - name: Add scraper2 host to group 'scraper2'
+      changed_when: False
+      ansible.builtin.add_host:
+        name: '{{ scraper2server.hcloud_server.ipv4_address }}'
+        groups: scraper2
+      when: scraper2_desired.stat.exists
+    - name: Remove entry from known hosts
+      ansible.builtin.known_hosts:
+        name: "{{ scraper2server.hcloud_server.ipv4_address }}"
+        state: absent
+      when: scraper2_desired.stat.exists
+    - name: Create scraper2 network
+      hetzner.hcloud.server_network:
+        api_token: "{{ api_key }}"
+        network: trader-insights-network
+        server: scraper2
+        ip: 10.0.0.4
+        state: "{{ state }}"
+      when: scraper2_desired.stat.exists
+
+    # scraper 3
+    - name: check if config file exists for scraper 3
+      stat:
+        path: ../config3.json
+      register: scraper3_desired
+
+    - name: Create scraper 3
+      hcloud_server:
+          api_token: "{{ api_key }}"
+          name: scraper3
+          server_type: cpx11
+          image: ubuntu-24.04
+          location: fsn1
+          ssh_keys:
+            - trading-insights-key
+          state: "{{ state }}"
+          private_networks:
+            - trader-insights-network
+      register: scraper3server
+      when: scraper3_desired.stat.exists
+    - name: Add scraper3 host to group 'scraper2'
+      changed_when: False
+      ansible.builtin.add_host:
+        name: '{{ scraper3server.hcloud_server.ipv4_address }}'
+        groups: scraper3
+      when: scraper3_desired.stat.exists
+    - name: Remove entry from known hosts
+      ansible.builtin.known_hosts:
+        name: "{{ scraper3server.hcloud_server.ipv4_address }}"
+        state: absent
+      when: scraper3_desired.stat.exists
+    - name: Create scraper3 network
+      hetzner.hcloud.server_network:
+        api_token: "{{ api_key }}"
+        network: trader-insights-network
+        server: scraper3
+        ip: 10.0.0.5
+        state: "{{ state }}"
+      when: scraper3_desired.stat.exists
+
+
+- name: Provision postgres server
+  hosts: postgres
+  user: root
+  become: true
+  vars:
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  tasks:
+    - name: Synchronization of trading_insights on the control machine to dest on the remote hosts
+      ansible.posix.synchronize:
+        src: ../..
+        dest: /home
+    - name: Move docker-compose-postgres.yaml to docker-compose.yaml
+      command: mv /home/trading_insights/docker-compose-postgres.yml /home/trading_insights/docker-compose.yml
+    - name: Recursively change ownership of a directory
+      ansible.builtin.file:
+        path: /home/trading_insights
+        state: directory
+        recurse: yes
+        owner: root
+        group: root
+        mode: '0777'
+    - import_tasks: install_docker.yaml
+    - name: Start postgres
+      community.docker.docker_compose_v2:
+        project_src: /home/trading_insights
+        build: always
+        services: postgres
+
+- name: Provision dashboard server
+  hosts: dashboard
+  user: root
+  become: true
+  vars:
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  tasks:
+    - name: Synchronization of trading_insights on the control machine to dest on the remote hosts
+      ansible.posix.synchronize:
+        src: ../..
+        dest: /home
+    - name: Recursively change ownership of a directory
+      ansible.builtin.file:
+        path: /home/trading_insights
+        state: directory
+        recurse: yes
+        owner: root
+        group: root
+        mode: '0777'
+    - name: Add postgres to /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        search_string: 'postgres'
+        line: 10.0.0.3 postgres
+    - import_tasks: install_docker.yaml
+    - name: Remove .gitkeep files from metabase postgres folder
+      ansible.builtin.shell: find /home/trading_insights/pg-metabase -type f -name '*.gitkeep' -exec rm {} +
+    - name: Start dashboard
+      community.docker.docker_compose_v2:
+        project_src: /home/trading_insights
+        build: always
+
+- name: Provision scraper server1
+  hosts: scraper1
+  user: root
+  become: true
+  vars:
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  tasks:
+    - name: check if config file exists for scraper 1
+      local_action: stat path=../config1.json
+      register: scraper1_desired
+      become: no
+    - name: Synchronization of trading_insights on the control machine to dest on the remote hosts
+      ansible.posix.synchronize:
+        src: ../..
+        dest: /home
+      when: scraper1_desired.stat.exists
+    - name: Move config1.json to config.json
+      command: mv /home/trading_insights/config1.json /home/trading_insights/config.json
+      when: scraper1_desired.stat.exists
+    - name: Move docker-compose-scraper.yaml to docker-compose.yaml
+      command: mv /home/trading_insights/docker-compose-scraper.yml /home/trading_insights/docker-compose.yml
+      when: scraper1_desired.stat.exists
+    - name: Recursively change ownership of a directory
+      ansible.builtin.file:
+        path: /home/trading_insights
+        state: directory
+        recurse: yes
+        owner: root
+        group: root
+      when: scraper1_desired.stat.exists
+    - import_tasks: install_docker.yaml
+      when: scraper1_desired.stat.exists
+    - name: Start scraper
+      community.docker.docker_compose_v2:
+        project_src: /home/trading_insights
+        build: always
+        services: scraper
+      when: scraper1_desired.stat.exists
+
+- name: Provision scraper server2
+  hosts: scraper2
+  user: root
+  become: true
+  vars:
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  tasks:
+    - name: check if config file exists for scraper 2
+      local_action: stat path=../config2.json
+      register: scraper2_desired
+      become: no
+    - name: Synchronization of trading_insights on the control machine to dest on the remote hosts
+      ansible.posix.synchronize:
+        src: ../..
+        dest: /home
+      when: scraper2_desired.stat.exists
+    - name: Move config2.json to config.json
+      command: mv /home/trading_insights/config2.json /home/trading_insights/config.json
+      when: scraper2_desired.stat.exists
+    - name: Move docker-compose-scraper.yaml to docker-compose.yaml
+      command: mv /home/trading_insights/docker-compose-scraper.yml /home/trading_insights/docker-compose.yml
+      when: scraper2_desired.stat.exists
+    - name: Recursively change ownership of a directory
+      ansible.builtin.file:
+        path: /home/trading_insights
+        state: directory
+        recurse: yes
+        owner: root
+        group: root
+      when: scraper2_desired.stat.exists
+    - import_tasks: install_docker.yaml
+      when: scraper2_desired.stat.exists
+    - name: Start scraper
+      community.docker.docker_compose_v2:
+        project_src: /home/trading_insights
+        build: always
+        services: scraper
+      when: scraper2_desired.stat.exists
+
+- name: Provision scraper server3
+  hosts: scraper3
+  user: root
+  become: true
+  vars:
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  tasks:
+    - name: check if config file exists for scraper 3
+      local_action: stat path=../config3.json
+      register: scraper3_desired
+      become: no
+    - name: Synchronization of trading_insights on the control machine to dest on the remote hosts
+      ansible.posix.synchronize:
+        src: ../..
+        dest: /home
+      when: scraper3_desired.stat.exists
+    - name: Move config2.json to config.json
+      command: mv /home/trading_insights/config3.json /home/trading_insights/config.json
+      when: scraper3_desired.stat.exists
+    - name: Move docker-compose-scraper.yaml to docker-compose.yaml
+      command: mv /home/trading_insights/docker-compose-scraper.yml /home/trading_insights/docker-compose.yml
+      when: scraper3_desired.stat.exists
+    - name: Recursively change ownership of a directory
+      ansible.builtin.file:
+        path: /home/trading_insights
+        state: directory
+        recurse: yes
+        owner: root
+        group: root
+      when: scraper3_desired.stat.exists
+    - import_tasks: install_docker.yaml
+      when: scraper3_desired.stat.exists
+    - name: Start scraper
+      community.docker.docker_compose_v2:
+        project_src: /home/trading_insights
+        build: always
+        services: scraper
+      when: scraper3_desired.stat.exists
+
+- name: Print URL of dashboard
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  user: root
+  tasks:
+    - name: Prints the URL of the dasboard
+      ansible.builtin.debug:
+        msg:
+        - "Dashboard is online at http://{{ dashboardserver.hcloud_server.ipv4_address }}:3000"

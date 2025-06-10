@@ -1,0 +1,50 @@
+---
+- name: Delete scrapers
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  user: root
+  vars:
+#    api_key: ""
+    state: absent
+
+  vars_prompt:
+    - name: api_key
+      prompt: Enter the API key
+  tasks:
+    - name: Delete scraper 1
+      ignore_errors: True
+      hcloud_server:
+          api_token: "{{ api_key }}"
+          name: scraper1
+          server_type: cpx11
+          image: ubuntu-24.04
+          location: fsn1
+          state: "{{ state }}"
+          private_networks:
+            - trader-insights-network
+      register: server
+    - name: Delete scraper 2
+      ignore_errors: True
+      hcloud_server:
+          api_token: "{{ api_key }}"
+          name: scraper2
+          server_type: cpx11
+          image: ubuntu-24.04
+          location: fsn1
+          state: "{{ state }}"
+          private_networks:
+            - trader-insights-network
+      register: server
+    - name: Delete scraper 3
+      ignore_errors: True
+      hcloud_server:
+          api_token: "{{ api_key }}"
+          name: scraper3
+          server_type: cpx11
+          image: ubuntu-24.04
+          location: fsn1
+          state: "{{ state }}"
+          private_networks:
+            - trader-insights-network
+      register: server

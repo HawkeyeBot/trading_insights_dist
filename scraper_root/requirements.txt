@@ -1,0 +1,12 @@
+unicorn-binance-websocket-api==1.41.0
+unicorn-binance-rest-api==1.5.0
+unicorn-fy==0.12.2
+SQLAlchemy==2.0.31
+hjson==3.1.0
+pybit==5.8.0
+python-bitget==1.0.8
+kucoin-futures-python==1.0.10
+python-telegram-bot==21.4
+psycopg2-binary==2.9.9
+slack-sdk==3.31.0
+discordwebhook==1.0.3

@@ -1,0 +1,40 @@
+---
+- name: Delete multi-server dashboard setup
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  user: root
+  vars:
+#    api_key: ""
+    state: absent
+
+  vars_prompt:
+    - name: api_key
+      prompt: Enter the API key
+  tasks:
+    - name: Delete postgres server
+      ignore_errors: True
+      hcloud_server:
+          api_token: "{{ api_key }}"
+          name: postgres
+          server_type: cpx11
+          image: ubuntu-24.04
+          location: fsn1
+          state: "{{ state }}"
+          private_networks:
+            - trader-insights-network
+      register: server
+    - name: Delete a firewall with rules
+      ignore_errors: True
+      hetzner.hcloud.firewall:
+        api_token: "{{ api_key }}"
+        name: trader-insights-postgres-firewall
+        rules:
+          - description: allow tcp from everywhere for port 3000
+            direction: in
+            protocol: tcp
+            port: "22"
+            source_ips:
+              - 0.0.0.0/0
+              - ::/0
+        state: "{{ state }}"

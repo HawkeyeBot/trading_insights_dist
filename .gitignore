@@ -192,3 +192,12 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+*.rkey
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/.gitignore
+/.idea/dbnavigator.xml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/vcs.xml

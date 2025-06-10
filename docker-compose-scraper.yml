@@ -1,0 +1,12 @@
+services:
+  scraper:
+    build:
+      dockerfile: Dockerfile_scraper
+    environment:
+      - CONFIG_FILE=/scraper/config.json
+      - DATABASE_PATH=postgresql+psycopg2://postgres:ZP2OLeQG57r239!lUF9k!@10.0.0.3/postgres
+      - WAIT_HOSTS=postgres:5432
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    restart: always

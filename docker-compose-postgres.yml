@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=ZP2OLeQG57r239!lUF9k!
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    networks:
+      - postgres
+    ports:
+      - '5432:5432'
+    command: postgres -h 0.0.0.0
+    healthcheck:
+      test: "pg_isready --username=postgres && psql --username=postgres --list"
+      timeout: 10s
+      retries: 20
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+networks:
+  postgres:
+    driver: bridge
+
